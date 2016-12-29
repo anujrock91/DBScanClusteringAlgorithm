@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<qualifiedTypeNameHistroy>
+<fullyQualifiedTypeName name="java.io.BufferedWriter"/>
+<fullyQualifiedTypeName name="java.util.LinkedHashSet"/>
+<fullyQualifiedTypeName name="DBSCAN.DBScanAlgorithm"/>
+<fullyQualifiedTypeName name="clustering.DBScan"/>
+<fullyQualifiedTypeName name="java.lang.Integer"/>
+<fullyQualifiedTypeName name="java.lang.Math"/>
+<fullyQualifiedTypeName name="javax.tools.JavaFileManager"/>
+<fullyQualifiedTypeName name="com.mkobos.pca_transform.PCA"/>
+<fullyQualifiedTypeName name="com.mkobos.pca_transform.PCA.TransformationType"/>
+<fullyQualifiedTypeName name="org.jmat.data.AbstractDoubleArray"/>
+<fullyQualifiedTypeName name="Jama.EigenvalueDecomposition"/>
+<fullyQualifiedTypeName name="org.jmat.data.matrixDecompositions.EigenvalueDecomposition"/>
+<fullyQualifiedTypeName name="org.jmat.data.AbstractMatrix"/>
+<fullyQualifiedTypeName name="java.util.TreeSet"/>
+<fullyQualifiedTypeName name="java.util.Comparator"/>
+<fullyQualifiedTypeName name="org.jmat.data.Matrix"/>
+<fullyQualifiedTypeName name="java.io.FileWriter"/>
+<fullyQualifiedTypeName name="java.lang.Double"/>
+<fullyQualifiedTypeName name="java.util.ArrayList"/>
+<fullyQualifiedTypeName name="java.io.File"/>
+<fullyQualifiedTypeName name="java.io.FileReader"/>
+<fullyQualifiedTypeName name="java.io.BufferedReader"/>
+<fullyQualifiedTypeName name="Jama.Matrix"/>
+<fullyQualifiedTypeName name="JaccardRANDPca.Test"/>
+<fullyQualifiedTypeName name="JaccardRANDPca.MRAnalysis"/>
+</qualifiedTypeNameHistroy>

@@ -1,0 +1,514 @@
+package DBSCAN;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.TreeSet;
+
+import org.jmat.data.AbstractDoubleArray;
+import org.jmat.data.AbstractMatrix;
+import org.jmat.data.Matrix;
+import org.jmat.data.matrixDecompositions.EigenvalueDecomposition;
+
+
+
+public class DBScanAlgorithm {
+	private int visitedLabel [];
+	private int clusterLabel [];
+	private double distanceMatrix [][];
+	
+	
+	public ArrayList<ArrayList<Integer>> DBScan(double [][] dataMatrix, double eps, int minPts){
+		//Calculating distance matrix
+		System.out.println("Calculating Distance Matrix");
+		distanceMatrix = calculateDistanceMatrix(dataMatrix).clone();
+		System.out.println("Calculated Distance Matrix : Dimentsions : ROWS= " + distanceMatrix.length + " : COLUMNS= " + distanceMatrix[0].length);
+		visitedLabel  = new int[distanceMatrix.length];
+		clusterLabel  = new int[distanceMatrix.length];
+		//Initial Cluster ID
+		int clusterId = 0;
+		System.out.println("Begining Clustering...");
+		for(int dataPoint=0;dataPoint<distanceMatrix.length;dataPoint++){
+			//If the point is not visited
+			if(visitedLabel[dataPoint] != 1){
+				visitedLabel[dataPoint] = 1;
+				//Returns all the points that are neighbors of data point(P included)
+				LinkedHashSet<Integer> neighbours = regionQuery(dataPoint, eps, distanceMatrix);  
+				if(neighbours.size() < minPts){
+					clusterLabel[dataPoint] = -1;
+				}
+				else{
+					clusterId = (1+clusterId);
+					expandCluster(dataPoint, neighbours, clusterId, eps, minPts);
+				}
+			}//End of if visited
+		}
+		System.out.println("End Clustering!!");
+		return getClusters();
+		//End of For Loop
+	}//End of function
+	
+	
+	
+	
+	private void expandCluster(int dataPoint, LinkedHashSet<Integer> neighborPts, int clusterId, double eps, int minPts){
+		clusterLabel[dataPoint] = clusterId;
+		for(int i=0;i<neighborPts.size();i++){
+			Object tempNeighborArray [] = neighborPts.toArray();
+			if(visitedLabel[(int)tempNeighborArray[i]] == 0){
+				visitedLabel[(int)tempNeighborArray[i]] = 1;
+				LinkedHashSet<Integer> tempNeighborPts = regionQuery((int)tempNeighborArray[i], eps, distanceMatrix);
+				if(tempNeighborPts.size() >= minPts){
+					neighborPts.addAll(tempNeighborPts);
+				}
+			}
+			if(clusterLabel[(int)tempNeighborArray[i]] == 0 || clusterLabel[(int)tempNeighborArray[i]] == -1){
+				clusterLabel[(int)tempNeighborArray[i]] = clusterId;
+			}
+		}
+	}
+	
+	
+	
+	private LinkedHashSet<Integer> regionQuery(int dataPoint, double eps, double [][] distanceMatrix){
+		double distanceArray[] = distanceMatrix[dataPoint].clone();
+		LinkedHashSet<Integer> neighborPoints = new LinkedHashSet<Integer>();
+		for(int i=0;i<distanceArray.length;i++){
+			if(distanceArray[i] <= eps){
+				neighborPoints.add(i);
+			}
+		}
+		return neighborPoints;
+	}
+	
+	
+	//Calculating the distance matrix
+	private double[][] calculateDistanceMatrix(double [][] tempMatrix){
+		double [][] tempDataMatrix = tempMatrix.clone();
+		double [][]distanceMatrix = new double[tempDataMatrix.length][tempDataMatrix.length];
+		System.out.println("Created Distance Matrix = " + distanceMatrix.length + " * " + distanceMatrix[0].length);
+		
+		for(int forEachRow=0; forEachRow < tempDataMatrix.length; forEachRow++){
+			double tempArr[] = tempDataMatrix[forEachRow].clone();
+			for(int i=0;i<tempDataMatrix.length;i++){
+				distanceMatrix[forEachRow][i] = calculateDistance(tempArr, tempDataMatrix[i].clone());
+			}
+		}
+		System.out.println("Filled the Distance Matrix " + distanceMatrix[2][2]);
+		return distanceMatrix;
+	}
+	
+	
+	//Function to Calculate Distance between two arrays
+	private double calculateDistance(double []arr1, double []arr2){
+			double sum=0;
+			for(int i=0;i<arr1.length;i++){
+				sum = sum + Math.pow((arr1[i]-arr2[i]),2);
+			}
+			return Math.sqrt(sum);
+	}
+	
+	
+	
+	//Get Clusters 
+	public ArrayList<ArrayList<Integer>> getClusters(){
+		ArrayList<ArrayList<Integer>> allClusters = new ArrayList<ArrayList<Integer>>();
+		TreeSet<Integer> uniqueClusterIds = new TreeSet<Integer>();
+		for(int label : clusterLabel)
+		uniqueClusterIds.add(label);
+		
+		//checking if there is a noise cluster Id
+		if(uniqueClusterIds.contains(-1)){
+			for(Integer uniqueClusterId : uniqueClusterIds){
+				System.out.println("ClusterIds : " + uniqueClusterId );
+				ArrayList<Integer> cluster = new ArrayList<Integer>();
+				for(int i=0;i<clusterLabel.length;i++){
+					if(clusterLabel[i] == uniqueClusterId){
+						cluster.add(i+1);
+					}
+				}
+				allClusters.add(cluster);
+			}
+		}
+		else{
+			ArrayList<Integer> noiseCluster = new ArrayList<>();
+			allClusters.add(noiseCluster);
+			for(Integer uniqueClusterId : uniqueClusterIds){
+				System.out.println("ClusterIds : " + uniqueClusterId );
+				ArrayList<Integer> cluster = new ArrayList<Integer>();
+				for(int i=0;i<clusterLabel.length;i++){
+					if(clusterLabel[i] == uniqueClusterId){
+						cluster.add(i+1);
+					}
+				}
+				allClusters.add(cluster);
+			}
+		}
+		
+		return allClusters;
+	}
+
+	
+	
+	
+	//Calculating the Internal Index or Correlation Coefficients
+	//The code below computes the correlation 
+	/*public void getCorrelation(ArrayList<ArrayList<Integer>> clusters) throws IOException{
+		double [][] tempDistanceMatrix = distanceMatrix.clone();
+		int [][] CMatrix = getCMatrixFromClusteredSet(clusters, tempDistanceMatrix.length).clone();
+		
+		double totalDistance=0.0d;
+		int totalC = 0;
+		for(int i=0;i<tempDistanceMatrix.length;i++){
+			for(int j=0;j<tempDistanceMatrix[i].length;j++){
+				totalDistance = totalDistance + tempDistanceMatrix[i][j];
+				totalC = totalC + CMatrix[i][j];
+			}
+		}
+		
+		double avgDistance = ((double)totalDistance/(double)(tempDistanceMatrix.length*tempDistanceMatrix.length));
+		double avgC = ((double)totalC/(double)(tempDistanceMatrix.length*tempDistanceMatrix.length));
+		
+		double numerator = 0;
+		double denominatorTemp1 = 0;
+		double denominatorTemp2 = 0;
+		for(int i=0;i<tempDistanceMatrix.length;i++){
+			for(int j=0;j<tempDistanceMatrix[i].length;j++){
+				numerator = numerator + (tempDistanceMatrix[i][j]-avgDistance)*(CMatrix[i][j]-avgC);
+				denominatorTemp1 = denominatorTemp1 + Math.pow((tempDistanceMatrix[i][j] - avgDistance), 2);
+				denominatorTemp2 = denominatorTemp2 + Math.pow((CMatrix[i][j]-avgC), 2);
+			}
+		}
+		
+		double denominator = Math.sqrt(denominatorTemp1*denominatorTemp2);
+		double corr = (numerator/denominator);
+		System.out.println("Correlation : " + corr);
+	}*/
+	
+	
+	
+	
+	
+	//Jaccard Coefficient and RAND Index
+	//The code below calculates the Jaccard Coefficient and RAND Index together
+	public void getJaccardCoefficientAndRANDWithoutNoise(String filePath, ArrayList<ArrayList<Integer>> clusters) throws IOException{
+		int [][]PMatrix = getPMatrixFromFile(filePath).clone();
+		int []determinedClusters = new int[PMatrix.length];
+		for(int eachCluster=1;eachCluster<clusters.size();eachCluster++){
+			ArrayList<Integer> cluster = clusters.get(eachCluster);
+			for(Integer point: cluster){
+				determinedClusters[point-1] = eachCluster;
+			}
+		}
+		
+		int M11=0;
+		int M10=0;
+		int M01=0;
+		int M00=0;
+		
+		for(int i=0;i<PMatrix.length;i++){
+			for(int k=0;k<PMatrix[i].length;k++){
+				if(determinedClusters[i] == 0 || determinedClusters[k] == 0){}
+				else{
+					if(PMatrix[i][k] == 1 && (determinedClusters[i]==determinedClusters[k])){
+						++M11;
+					}
+					else if(PMatrix[i][k] == 1 && (determinedClusters[i]!=determinedClusters[k])){
+						++M10;
+					}
+					else if(PMatrix[i][k] == 0 && (determinedClusters[i]==determinedClusters[k])){
+						++M01;
+					}
+					else if(PMatrix[i][k] == 0 && (determinedClusters[i]!=determinedClusters[k])){
+						++M00;
+					}
+				}
+			}
+		}
+		
+		double jaccardCoefficient = ((double)M11/(double)(M11+M10+M01));  
+		double RAND = ((double)(M11+M00)/(double)(M11+M00+M10+M01));
+		System.out.println("Jaccard Coeeficient : " + jaccardCoefficient + " || RAND : " + RAND);
+	}
+	
+	
+	
+	public void getJaccardCoefficientAndRAND(String filePath, ArrayList<ArrayList<Integer>> clusters) throws IOException{
+		int [][]PMatrix = getPMatrixFromFile(filePath).clone();
+		int [][]CMatrix = getCMatrixFromClusteredSet(clusters, PMatrix.length).clone();
+		
+		
+		//Reading file and creating an array of Ids and clusters
+		ArrayList<ArrayList<Integer>> listOfPoints = new ArrayList<ArrayList<Integer>>();
+		File fName = new File(filePath);
+		FileReader newFile = new FileReader(fName);
+		BufferedReader readFile = new BufferedReader(newFile);
+		String line;
+		while((line=readFile.readLine()) != null){
+			ArrayList<Integer> idAndCluster = new ArrayList<Integer>();
+			String terms[] = line.split("\t");
+			idAndCluster.add(Integer.parseInt(terms[0]));
+			idAndCluster.add(Integer.parseInt(terms[1]));
+			listOfPoints.add(idAndCluster);
+		}
+		readFile.close();	
+		//Construct a primitive array for ground truth clusters from ArrayList where index = Id of point and value = clusterId
+		int groundTruthClusters[] = new int[listOfPoints.size()];
+		for(ArrayList<Integer> point: listOfPoints){
+				groundTruthClusters[point.get(0)-1] = point.get(1);
+		}
+		
+		//RAND Index
+		int M1100 = 0;
+		for(int i=0;i<PMatrix.length;i++){
+			for(int k=0;k<PMatrix[i].length;k++){
+				if(PMatrix[i][k] == CMatrix[i][k] & (groundTruthClusters[i] != -1 || groundTruthClusters[k]!= -1)){
+					M1100 = (M1100+1);
+				}
+			}
+		}
+		
+		
+		double RAND = ((double)M1100/(double)(PMatrix.length*PMatrix.length));
+		//System.out.println("M11+M00 : " +  M1100);
+		System.out.println("RAND : " + RAND);
+		
+		//Jaccard Index
+		int M11 = 0;
+		for(int i=0;i<PMatrix.length;i++){
+			for(int k=0;k<PMatrix[i].length;k++){
+				if((PMatrix[i][k] == CMatrix[i][k]) && PMatrix[i][k] == 1){
+					++M11;
+				}
+			}
+		}
+		int M1001 = 0;
+		for(int i=0;i<PMatrix.length;i++){
+			for(int k=0;k<PMatrix[i].length;k++){
+				if((PMatrix[i][k] != CMatrix[i][k])){
+					++M1001;
+				}
+			}
+		}
+		double JaccardCoeffiecient =  ((double)M11/(double)(M11+M1001));
+		System.out.println("M11 : " + M11);
+		System.out.println("Jaccard Coeff : " + JaccardCoeffiecient);
+	}
+	
+	
+	//Read the file and build P~matrix
+	private int[][] getPMatrixFromFile(String filePath) throws IOException{
+		//Reading file and creating an array of Ids and clusters
+		ArrayList<ArrayList<Integer>> listOfPoints = new ArrayList<ArrayList<Integer>>();
+		File fName = new File(filePath);
+		FileReader newFile = new FileReader(fName);
+		BufferedReader readFile = new BufferedReader(newFile);
+		String line;
+		while((line=readFile.readLine()) != null){
+			ArrayList<Integer> idAndCluster = new ArrayList<Integer>();
+			String terms[] = line.split("\t");
+			idAndCluster.add(Integer.parseInt(terms[0]));
+			idAndCluster.add(Integer.parseInt(terms[1]));
+			listOfPoints.add(idAndCluster);
+		}
+		readFile.close();	
+		//Construct a primitive array for ground truth clusters from ArrayList where index = Id of point and value = clusterId
+		int groundTruthClusters[] = new int[listOfPoints.size()];
+		for(ArrayList<Integer> point: listOfPoints){
+				groundTruthClusters[point.get(0)-1] = point.get(1);
+		}
+		return getP(groundTruthClusters);
+	}
+	
+	
+	private int [][] getP(int [] arr) {
+		int [] groundTruthClusters = arr.clone();
+		int PMatrix [][] = new int[groundTruthClusters.length][groundTruthClusters.length];
+		
+		for(int eachClusterId=0;eachClusterId<PMatrix.length;eachClusterId++){
+			for(int eachId=0; eachId < PMatrix[eachClusterId].length ; eachId++){
+				if((groundTruthClusters[eachClusterId] == groundTruthClusters[eachId]) && groundTruthClusters[eachClusterId] != -1){
+					PMatrix[eachClusterId][eachId] = 1;
+				}
+			}
+		}	
+		return PMatrix;
+	}
+	
+	//Build the C~Matrix from Clustered Set
+	private int[][] getCMatrixFromClusteredSet(ArrayList<ArrayList<Integer>> clusters, int numberOfPoints) throws IOException{
+		int []determinedClusters = new int[numberOfPoints];
+		for(int eachCluster=1;eachCluster<clusters.size();eachCluster++){
+			ArrayList<Integer> cluster = clusters.get(eachCluster);
+			for(Integer point: cluster){
+				determinedClusters[point-1] = eachCluster;
+			}
+		}
+		
+		return getC(determinedClusters);
+	}
+	
+	private int[][] getC(int [] arr) throws IOException{
+		int [] determinedClusters = arr.clone();
+		int CMatrix[][]=new int[determinedClusters.length][determinedClusters.length];
+		for(int eachClusterId = 0; eachClusterId < CMatrix.length; eachClusterId++){
+			for(int eachIdToCompare = 0 ; eachIdToCompare < CMatrix[eachClusterId].length ; eachIdToCompare++){
+				if((determinedClusters[eachClusterId] == determinedClusters[eachIdToCompare]) && determinedClusters[eachClusterId] != 0){
+				//if((determinedClusters[eachClusterId] == determinedClusters[eachIdToCompare])){
+					CMatrix[eachClusterId][eachIdToCompare] = 1;
+				}
+			}
+		}
+		return CMatrix;
+	}
+	
+	
+	
+	
+	//getting reduced Data Matrix based on PCA
+	public double[][] getReducedDataMatrix(double [][] dataMatrix, ArrayList<ArrayList<Integer>> clusters, int reducedDimensionsToKeep){
+		Matrix dataMAT = new Matrix(dataMatrix);
+		AbstractMatrix covarianceMAT = dataMAT.covariance();
+		EigenvalueDecomposition eigenValueDecomposition = covarianceMAT.eig();
+		AbstractMatrix eigenValueMAT = eigenValueDecomposition.getD();
+		AbstractMatrix eigenVectorMAT = eigenValueDecomposition.getV();
+		
+		AbstractMatrix eigenValuesMax = eigenValueMAT.max();
+		
+		double[][] arrEigenValue = eigenValuesMax.getArrayCopy();
+		double[][] arrEigenVector = eigenVectorMAT.getArrayCopy();
+		
+		//copying the eigenValues in a one dimensional Array
+		double [] eigenvalues = new double[arrEigenValue[0].length];
+		for(int i=0;i<arrEigenValue.length;i++){
+			for(int k=0;k<arrEigenValue[i].length;k++){
+				//System.out.println(arrEigenValue[i][k]);
+				eigenvalues[k] = arrEigenValue[i][k];
+			}
+		}
+		
+		//Sorting the Eigen values in descending order
+		ArrayList<Double> sortedEigenValues = new ArrayList<Double>();
+		for(int i=0;i<eigenvalues.length;i++){
+			sortedEigenValues.add(eigenvalues[i]);
+		}
+		sortedEigenValues.sort(new Comparator<Double>() {
+			@Override
+			public int compare(Double o1, Double o2) {
+				if(o1 < o2){return 1;}
+				else{return -1;}
+			}});
+		
+		//Getting the eigen value index with the highest Eigen Values
+		ArrayList<Integer> highestEigenValueIndex = new ArrayList<>();
+		for(Double eachSortedEigenValue : sortedEigenValues){
+			for(int i=0;i<eigenvalues.length;i++){
+				if(eachSortedEigenValue == eigenvalues[i]){
+					highestEigenValueIndex.add(i);
+				}
+			}
+		}
+		
+		//Selecting the eigen top eigen vectors to keep based on the eigen values
+		double [][] eigenVector = new double[arrEigenVector.length][reducedDimensionsToKeep];
+		
+		System.out.println("Getting the first "  + reducedDimensionsToKeep + " Eigen Vectors ..... ");
+		for(int i=0;i<reducedDimensionsToKeep;i++){
+			int columnForEigenVector = highestEigenValueIndex.get(i);
+			for(int k=0;k<arrEigenVector.length;k++){
+				eigenVector[k][i] = arrEigenVector[k][columnForEigenVector];
+			}
+		}
+		System.out.println("Got the first " + reducedDimensionsToKeep + " Eigen vectors ..... ");
+		
+		Jama.Matrix dataMATJama = new Jama.Matrix(dataMatrix.clone());
+		Jama.Matrix eigenVectorsMATJama = new Jama.Matrix(eigenVector);
+		Jama.Matrix reducedDataMATJama = dataMATJama.times(eigenVectorsMATJama);
+		double [][] reducedDataMatrix = reducedDataMATJama.getArray();
+		return reducedDataMatrix;
+	}//End of reduced Data Matrix based on PCA
+	
+	
+	
+	public void getReducedMatrixInFileForFormedClusters(double [][] reducedMatrixTemp, ArrayList<ArrayList<Integer>> clustersTemp, String outputFilePath) throws IOException{
+		double [][]matrixToPlot = new double[reducedMatrixTemp.length][reducedMatrixTemp[0].length+1];
+		
+		for(int i=1;i<clustersTemp.size();i++){
+			ArrayList<Integer> cluster = clustersTemp.get(i);
+			for(Integer point: cluster){
+				matrixToPlot[point-1][0] = i;
+			}
+		}
+		
+		for(int row=0;row<matrixToPlot.length;row++){
+			for(int column=1;column<matrixToPlot[0].length;column++){
+				matrixToPlot[row][column] = reducedMatrixTemp[row][column-1];
+			}
+		}
+		
+		/*for(int row=0;row<matrixToPlot.length;row++){
+			for(int column=0;column<matrixToPlot[0].length;column++){
+				System.out.print( matrixToPlot[row][column] + " || ");
+			}
+			System.out.println();
+		}*/
+		
+		File fName = new File(outputFilePath);
+		FileWriter writeFile = new FileWriter(fName);
+		for(int row=0;row<matrixToPlot.length;row++){
+			for (int column = 0; column < matrixToPlot[0].length; column++) {
+				writeFile.write(matrixToPlot[row][column] + "\t");
+			}
+			writeFile.write("\n");
+		}
+		writeFile.close();
+	}//End of write file function
+	
+	
+	public void getReducedMatrixInFileForGivenClusters(double reducedMatrixTemp[][], String filePath, String outputFilePath) throws IOException{
+		double matrixToPlot [][]= new double[reducedMatrixTemp.length][reducedMatrixTemp[0].length+1];
+		File fName = new File(filePath);
+		FileReader newFile = new FileReader(fName);
+		BufferedReader readFile = new BufferedReader(newFile);
+		String line = null;
+		
+		int row=0;
+		while((line=readFile.readLine()) != null){
+			String terms[] = line.split("\t");
+			matrixToPlot[row][0] = Double.parseDouble(terms[1]);
+			++row;
+		}
+		
+		readFile.close();
+		
+		for(int r=0;r<matrixToPlot.length;r++){
+			for(int column=1;column<matrixToPlot[0].length;column++){
+				matrixToPlot[r][column] = reducedMatrixTemp[r][column-1];
+			}
+		}
+		
+		fName = new File(outputFilePath);
+		FileWriter writeFile = new FileWriter(fName);
+		for(int r=0;r<matrixToPlot.length;r++){
+			for (int column = 0; column < matrixToPlot[0].length; column++) {
+				writeFile.write(matrixToPlot[r][column] + "\t");
+			}
+			writeFile.write("\n");
+		}
+		writeFile.close();
+		
+		/*for(int r=0;r<matrixToPlot.length;r++){
+			for(int column=0;column<matrixToPlot[0].length;column++){
+				System.out.print(matrixToPlot[r][column] + " || ");
+			}
+			System.out.println();
+		}*/
+	}
+	
+}
